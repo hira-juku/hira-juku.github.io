@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>説明動画</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: #0f0f10; color: #fff;
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  .stage { width: 100%; max-width: 1280px; aspect-ratio: 16 / 10; max-height: 88vh; background: #000; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .note { margin: 14px 16px; font-size: 13px; color: #9a9aa0; text-align: center; }
+  .note a { color: #d0d0d6; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" hidden><iframe id="player" allow="autoplay; fullscreen" allowfullscreen title="説明動画"></iframe></div>
+<p class="note" id="note"></p>
+<script>
+  // リンクの # のあとにある Googleドライブの動画IDを読んで、その動画を表示する
+  var id = (location.hash.slice(1) || "").replace(/[^\w-]/g, "");
+  var note = document.getElementById("note");
+  if (id) {
+    document.getElementById("player").src = "https://drive.google.com/file/d/" + id + "/preview";
+    document.getElementById("stage").hidden = false;
+    note.innerHTML = "▶ を押すと再生します。「再生処理中」と出たら、1〜2分おいてから開き直してください。<br>" +
+      '<a href="https://drive.google.com/file/d/' + id + '/view" rel="noreferrer">うまく見られないときはこちら</a>';
+  } else {
+    note.textContent = "動画のリンクが正しくありません。送られてきたリンクをもう一度開いてください。";
+  }
+</script>
+</body>
+</html>
