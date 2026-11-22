@@ -74,7 +74,11 @@
       play.hidden = true;
       startWatch();
       var p = video.play();
-      if (p && p.catch) p.catch(function (e) { if (!e || e.name !== "AbortError") useDrivePlayer(); });
+      if (p && p.catch) p.catch(function (e) {
+        var name = e && e.name;
+        if (name === "NotAllowedError") { clearTimeout(watchdog); play.hidden = false; return; } // もう一度押してもらう
+        if (name !== "AbortError") useDrivePlayer();
+      });
     };
     video.addEventListener("play", function () { play.hidden = true; if (video.readyState < 2) startWatch(); });
     video.addEventListener("playing", function () { clearTimeout(watchdog); });
