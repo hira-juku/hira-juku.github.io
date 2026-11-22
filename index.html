@@ -51,6 +51,15 @@
   .speeds { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   .speeds button { padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
   .speeds button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .sec { margin-top: 24px; }
+  .sec h2 { font-size: 17px; margin: 0 0 8px; }
+  .sec p.sum { margin: 0; line-height: 1.75; }
+  .tr { margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; max-height: 420px; overflow: auto; }
+  .tr button { display: flex; gap: 12px; width: 100%; text-align: left; padding: 10px 14px; border: 0; border-top: 1px solid var(--line); background: #fff; font: inherit; font-size: 15px; color: var(--ink); cursor: pointer; line-height: 1.6; }
+  .tr button:first-child { border-top: 0; }
+  .tr button:hover, .tr button.now { background: #eef2ff; }
+  .tr .ts { flex: none; color: var(--blue); font-variant-numeric: tabular-nums; font-size: 14px; padding-top: 1px; min-width: 42px; }
+  .more { margin-top: 8px; border: 0; background: none; color: var(--blue); font: inherit; font-size: 14px; cursor: pointer; padding: 4px 0; }
   .help { margin-top: 22px; font-size: 13px; color: var(--sub); }
   .help a { color: var(--sub); }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
@@ -85,6 +94,12 @@
       <button id="share" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>共有</button>
     </div>
     <div class="speeds" id="speeds"></div>
+    <div class="sec" id="sumSec" hidden><h2>要約</h2><p class="sum" id="sum"></p></div>
+    <div class="sec" id="trSec" hidden>
+      <h2>文字起こし</h2>
+      <div class="tr" id="tr"></div>
+      <button class="more" id="more" hidden>すべて表示</button>
+    </div>
     <p class="help"><a id="driveLink" href="#">うまく見られないときはこちら</a></p>
   </div>
  </div>
@@ -96,12 +111,14 @@
   // ドライブの「再生処理」を待たないので、録り終わってすぐ見られる。うまくいかない時だけドライブの再生画面に切り替える。
   var KEY = "AIzaSyAgyNiDL5sNl-UXOo5W9kNPvXrwln3R8OQ"; // hira-juku.github.io からのドライブ読み込み専用に制限したキー
   var API = "https://www.googleapis.com/drive/v3/files/";
+  var SIDE = "1QtXIoi0XBtKaEcVR--EaC4sW9-KGvMfB"; // ドライブの「_文字起こし」フォルダ（録ったあと自動で文字起こしが置かれる）
   var id = (location.hash.slice(1).split("&")[0] || "").replace(/[^\w-]/g, "");
   var $ = function (x) { return document.getElementById(x); };
   var video = $("video"), frame = $("frame"), cover = $("cover"), poster = $("poster");
   var SRC = API + id + "?alt=media&key=" + KEY;
   var SPEEDS = [1, 1.25, 1.5, 1.75, 2];
   var speed = 1, switched = false, retries = 0, started = false, watchdog = 0;
+  var startAt = Number((location.hash.match(/[&?]t=(\d+)/) || [])[1] || 0);
   try { speed = Number(localStorage.getItem("hira-speed")) || 1; } catch (e) {}
 
   function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); setTimeout(function () { el.classList.remove("on"); }, 1600); }
@@ -154,6 +171,7 @@
     video.controls = true;
     video.playbackRate = speed;
     startWatch();
+    if (startAt) { try { video.currentTime = startAt; } catch (e) {} startAt = 0; }
     var p = video.play();
     if (p && p.catch) p.catch(function (e) {
       if (e && e.name === "NotAllowedError") { clearTimeout(watchdog); cover.hidden = false; return; }
@@ -220,6 +238,47 @@
           poster.onload = function () { if (!started) poster.hidden = false; };
           poster.src = m.thumbnailLink.replace(/=s\d+$/, "=s1280");
         }
+      }).catch(function () {});
+    // 要約と文字起こし（録ったあと少しして、自動でドライブに置かれる）
+    function fmtTs(sec) { sec = Math.floor(sec || 0); var m = Math.floor(sec / 60), x = sec % 60; return m + ":" + (x < 10 ? "0" : "") + x; }
+    function seek(sec) {
+      if (switched) return;
+      if (!started) { startAt = sec; begin(); return; }
+      try { video.currentTime = sec; } catch (e) {}
+      var p = video.play(); if (p && p.catch) p.catch(function () {});
+    }
+    var q = encodeURIComponent("'" + SIDE + "' in parents and name = '" + id + ".json' and trashed = false");
+    fetch(API + "?q=" + q + "&fields=files(id)&key=" + KEY)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (l) { if (l && l.files && l.files[0]) return fetch(API + l.files[0].id + "?alt=media&key=" + KEY); })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (t) {
+        if (!t) return;
+        if (t.title && /^説明動画$|の説明動画$/.test($("title").textContent)) { $("title").textContent = t.title; document.title = t.title; }
+        if (t.summary) { $("sum").textContent = t.summary; $("sumSec").hidden = false; }
+        var segs = t.segments || [];
+        if (!segs.length) return;
+        var box = $("tr");
+        segs.forEach(function (sg, i) {
+          var b = document.createElement("button");
+          b.dataset.s = sg.start;
+          b.innerHTML = '<span class="ts">' + fmtTs(sg.start) + "</span><span></span>";
+          b.lastChild.textContent = sg.text;
+          b.onclick = function () { seek(sg.start); };
+          if (i >= 8) b.hidden = true;
+          box.append(b);
+        });
+        $("trSec").hidden = false;
+        if (segs.length > 8) {
+          $("more").hidden = false;
+          $("more").onclick = function () { [].forEach.call(box.children, function (b) { b.hidden = false; }); $("more").hidden = true; };
+        }
+        // 再生中の文に色を付ける
+        video.addEventListener("timeupdate", function () {
+          var cur = video.currentTime, now = null;
+          [].forEach.call(box.children, function (b) { if (Number(b.dataset.s) <= cur) now = b; b.classList.remove("now"); });
+          if (now) now.classList.add("now");
+        });
       }).catch(function () {});
     if (navigator.share) {
       $("share").hidden = false;
