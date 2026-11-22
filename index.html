@@ -5,112 +5,230 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#111114">
 <title>説明動画</title>
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; background: #0f0f10; color: #fff;
-    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
-    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-  .stage { position: relative; width: 100%; max-width: 1280px; aspect-ratio: 16 / 10; max-height: 88vh; background: #000; }
-  video, iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; object-fit: contain; }
-  .play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; border: 0; background: rgba(0,0,0,.25); color: #fff; font: inherit; cursor: pointer; }
-  .play .btn { width: 88px; height: 88px; border-radius: 50%; background: #e5352b; display: flex; align-items: center;
-    justify-content: center; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
-  .play .btn::after { content: ""; margin-left: 7px; border-style: solid; border-width: 18px 0 18px 29px;
-    border-color: transparent transparent transparent #fff; }
-  .play b { font-size: 16px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
-  .note { margin: 14px 16px; font-size: 13px; color: #9a9aa0; text-align: center; }
-  .note a { color: #d0d0d6; }
+  :root {
+    --blue: #3b5bdb; --ink: #1c1c1e; --sub: #6e6e73; --line: #e5e5ea; --chip: #f2f2f5; --bg: #ffffff; --stage: #111114;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  @media (min-width: 900px) { body { background: #f4f4f6; } .wrap { padding: 28px 20px 48px; } .card { border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.06); } }
+
+  /* ---------- 動画 ---------- */
+  .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--stage); overflow: hidden; }
+  .stage video, .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--stage); object-fit: contain; }
+  .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.82); }
+  .cover { position: absolute; inset: 0; border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .bigplay { width: 84px; height: 84px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35); transition: transform .15s; }
+  .cover:active .bigplay { transform: scale(.94); }
+  .bigplay::after { content: ""; margin-left: 8px; border-style: solid; border-width: 17px 0 17px 28px; border-color: transparent transparent transparent #fff; }
+  .pill { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px;
+    background: rgba(28,28,30,.72); color: #fff; font-size: 15px; font-weight: 600; border: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .pill .dur { font-weight: 400; opacity: .9; }
+  .fs { position: absolute; top: 12px; right: 12px; width: 44px; height: 40px; border-radius: 12px; border: 0; cursor: pointer;
+    background: rgba(28,28,30,.72); color: #fff; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .fs svg { width: 20px; height: 20px; }
+  .wait { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
+    background: rgba(28,28,30,.78); color: #fff; font-size: 13px; white-space: nowrap; }
+
+  /* ---------- 下の情報 ---------- */
+  .info { padding: 18px 16px 28px; }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex: none; }
+  .who b { display: block; font-size: 17px; }
+  .who span { color: var(--sub); font-size: 14px; }
+  h1 { font-size: 22px; line-height: 1.4; margin: 16px 0 6px; word-break: break-word; }
+  .access { color: var(--sub); font-size: 14px; margin: 0 0 16px; }
+  .actions { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .actions::-webkit-scrollbar { display: none; }
+  .actions button { flex: none; display: flex; align-items: center; gap: 7px; padding: 10px 16px; border-radius: 999px; border: 0;
+    background: var(--chip); color: var(--ink); font: inherit; font-size: 15px; cursor: pointer; }
+  .actions button svg { width: 18px; height: 18px; }
+  .speeds { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .speeds button { padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
+  .speeds button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .help { margin-top: 22px; font-size: 13px; color: var(--sub); }
+  .help a { color: var(--sub); }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<div class="stage" id="stage" hidden>
-  <video id="video" controls playsinline preload="metadata" hidden></video>
-  <iframe id="frame" allow="autoplay; fullscreen" allowfullscreen title="説明動画" hidden></iframe>
-  <button class="play" id="play" hidden><span class="btn"></span><b>タップして再生</b></button>
+<div class="wrap">
+ <div class="card">
+  <div class="stage" id="stage">
+    <video id="video" playsinline preload="metadata"></video>
+    <iframe id="frame" allow="autoplay; fullscreen" allowfullscreen title="説明動画" hidden></iframe>
+    <img class="poster" id="poster" alt="" hidden>
+    <button class="cover" id="cover" aria-label="再生する"><span class="bigplay"></span></button>
+    <button class="pill" id="pill" aria-label="再生速度を変える"><span id="pillSpeed">1x</span><span class="dur" id="pillDur"></span></button>
+    <button class="fs" id="fs" aria-label="全画面で見る">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+    </button>
+    <div class="wait" id="wait" hidden>動画を準備しています…（数秒〜1分ほどで始まります）</div>
+  </div>
+
+  <div class="info">
+    <div class="who">
+      <div class="avatar">ヒ</div>
+      <div><b>ヒラ</b><span id="when"></span></div>
+    </div>
+    <h1 id="title">説明動画</h1>
+    <p class="access">リンクを知っている人が見られます</p>
+    <div class="actions">
+      <button id="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>リンクをコピー</button>
+      <button id="share" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>共有</button>
+    </div>
+    <div class="speeds" id="speeds"></div>
+    <p class="help"><a id="driveLink" href="#">うまく見られないときはこちら</a></p>
+  </div>
+ </div>
 </div>
-<p class="note" id="note"></p>
+<div class="toast" id="toast"></div>
+
 <script>
   // リンクの # のあとにある Googleドライブの動画IDを読んで、動画ファイルをそのまま再生する。
-  // ドライブの「再生処理」を待たないので、録り終わってすぐ見られる。
-  // うまくいかないときだけ、ドライブの再生画面（埋め込み）に切り替える。
+  // ドライブの「再生処理」を待たないので、録り終わってすぐ見られる。うまくいかない時だけドライブの再生画面に切り替える。
   var KEY = "AIzaSyAgyNiDL5sNl-UXOo5W9kNPvXrwln3R8OQ"; // hira-juku.github.io からのドライブ読み込み専用に制限したキー
-  var id = (location.hash.slice(1) || "").replace(/[^\w-]/g, "");
-  var stage = document.getElementById("stage"), video = document.getElementById("video");
-  var frame = document.getElementById("frame"), play = document.getElementById("play"), note = document.getElementById("note");
-  var driveView = "https://drive.google.com/file/d/" + id + "/view";
-  var switched = false, retries = 0;
-  var SRC = "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&key=" + KEY;
+  var API = "https://www.googleapis.com/drive/v3/files/";
+  var id = (location.hash.slice(1).split("&")[0] || "").replace(/[^\w-]/g, "");
+  var $ = function (x) { return document.getElementById(x); };
+  var video = $("video"), frame = $("frame"), cover = $("cover"), poster = $("poster");
+  var SRC = API + id + "?alt=media&key=" + KEY;
+  var SPEEDS = [1, 1.25, 1.5, 1.75, 2];
+  var speed = 1, switched = false, retries = 0, started = false, watchdog = 0;
+  try { speed = Number(localStorage.getItem("hira-speed")) || 1; } catch (e) {}
+
+  function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); setTimeout(function () { el.classList.remove("on"); }, 1600); }
+  function fmtDur(sec) {
+    if (!sec || !isFinite(sec)) return "";
+    var m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return m ? (m + "分" + (m < 10 && s ? s + "秒" : "")) : (s + "秒");
+  }
+  function ago(iso) {
+    var d = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (!isFinite(d)) return "";
+    if (d < 60) return "たった今";
+    if (d < 3600) return Math.floor(d / 60) + "分前";
+    if (d < 86400) return Math.floor(d / 3600) + "時間前";
+    if (d < 86400 * 30) return Math.floor(d / 86400) + "日前";
+    var t = new Date(iso); return (t.getMonth() + 1) + "月" + t.getDate() + "日";
+  }
+  function setSpeed(v) {
+    speed = v; video.playbackRate = v;
+    $("pillSpeed").textContent = (v === 1 ? "1" : v) + "x";
+    [].forEach.call($("speeds").children, function (b) { b.classList.toggle("on", Number(b.dataset.v) === v); });
+    try { localStorage.setItem("hira-speed", String(v)); } catch (e) {}
+  }
+  function setDur(sec) { var t = fmtDur(sec); $("pillDur").textContent = t ? "・" + t : ""; }
 
   function useDrivePlayer() {
     if (switched) return;
-    switched = true;
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-    video.hidden = true;
-    play.hidden = true;
+    switched = true; clearTimeout(watchdog);
+    video.pause(); video.removeAttribute("src"); video.load(); video.hidden = true;
+    cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("fs").hidden = true; $("wait").hidden = true;
     frame.src = "https://drive.google.com/file/d/" + id + "/preview";
     frame.hidden = false;
-    note.innerHTML = "▶ を押すと再生します。「再生処理中」と出たら、数分おいてから開き直してください。<br>" +
-      '<a href="' + driveView + '">うまく見られないときはこちら</a>';
+    $("speeds").hidden = true;
+  }
+  function startWatch() {
+    clearTimeout(watchdog);
+    watchdog = setTimeout(function () { if (!switched && !retries && video.readyState < 2) useDrivePlayer(); }, 12000);
+  }
+  function retryLater() {
+    retries++;
+    $("wait").hidden = false;
+    setTimeout(function () {
+      video.src = SRC + "&r=" + retries;
+      if (started) { var p = video.play(); if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") cover.hidden = false; }); }
+    }, 3000);
+  }
+  function begin() {
+    started = true;
+    cover.hidden = true; poster.hidden = true;
+    video.controls = true;
+    video.playbackRate = speed;
+    startWatch();
+    var p = video.play();
+    if (p && p.catch) p.catch(function (e) {
+      if (e && e.name === "NotAllowedError") { clearTimeout(watchdog); cover.hidden = false; return; }
+      if (!e || e.name !== "AbortError") useDrivePlayer();
+    });
+  }
+  function fullscreen() {
+    if (switched) { if (frame.requestFullscreen) frame.requestFullscreen(); return; }
+    if (!started) begin();
+    var st = $("stage");
+    if (video.webkitEnterFullscreen && !document.fullscreenEnabled) { try { video.webkitEnterFullscreen(); } catch (e) {} return; } // iPhone
+    var req = st.requestFullscreen || st.webkitRequestFullscreen;
+    if (req) {
+      var r = req.call(st);
+      var lock = function () { try { screen.orientation.lock("landscape").catch(function () {}); } catch (e) {} };
+      if (r && r.then) r.then(lock).catch(function () {}); else lock();
+    } else if (video.webkitEnterFullscreen) { try { video.webkitEnterFullscreen(); } catch (e) {} }
   }
 
-  if (id) {
-    stage.hidden = false;
-    video.hidden = false;
-    play.hidden = false;
-    video.src = SRC;
-    note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
-    var watchdog = 0;
-    function startWatch() {
-      // 再生を押してから12秒たっても映像が出なければ、ドライブの再生画面に切り替える
-      clearTimeout(watchdog);
-      watchdog = setTimeout(function () { if (!switched && !retries && video.readyState < 2) useDrivePlayer(); }, 12000);
-    }
-    play.onclick = function () {
-      play.hidden = true;
-      startWatch();
-      var p = video.play();
-      if (p && p.catch) p.catch(function (e) {
-        var name = e && e.name;
-        if (name === "NotAllowedError") { clearTimeout(watchdog); play.hidden = false; return; } // もう一度押してもらう
-        if (name !== "AbortError") useDrivePlayer();
-      });
-    };
-    video.addEventListener("play", function () { play.hidden = true; if (video.readyState < 2) startWatch(); });
-    video.addEventListener("playing", function () { clearTimeout(watchdog); });
-    function retryLater() {
-      retries++;
-      play.hidden = true;
-      note.textContent = "動画を準備しています…（数秒〜1分ほどで始まります）";
-      setTimeout(function () {
-        video.src = SRC + "&r=" + retries;
-        var p = video.play();
-        if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") play.hidden = false; });
-      }, 3000);
-    }
+  if (!id) {
+    $("title").textContent = "動画のリンクが正しくありません";
+    $("stage").hidden = true;
+  } else {
+    $("driveLink").href = "https://drive.google.com/file/d/" + id + "/view";
+    // 速度ボタン
+    SPEEDS.forEach(function (v) {
+      var b = document.createElement("button"); b.dataset.v = v; b.textContent = (v === 1 ? "1" : v) + "倍";
+      b.onclick = function () { setSpeed(v); toast((v === 1 ? "ふつうの速さ" : v + "倍速") + "にしました"); };
+      $("speeds").append(b);
+    });
+    setSpeed(speed);
+    $("pill").onclick = function () { var i = SPEEDS.indexOf(speed); setSpeed(SPEEDS[(i + 1) % SPEEDS.length]); toast(speed + "倍速"); };
+    // 最初の一コマを見せる（ドライブのサムネイルが無い間の代わり）
+    video.src = SRC + "#t=0.5";
+    cover.onclick = begin;
+    $("fs").onclick = fullscreen;
+    video.addEventListener("loadedmetadata", function () { setDur(video.duration); video.playbackRate = speed; });
+    video.addEventListener("loadeddata", function () { $("wait").hidden = true; });
+    video.addEventListener("play", function () { cover.hidden = true; poster.hidden = true; });
+    video.addEventListener("playing", function () { clearTimeout(watchdog); $("wait").hidden = true; });
+    video.addEventListener("ratechange", function () { if (video.playbackRate !== speed && SPEEDS.indexOf(video.playbackRate) >= 0) setSpeed(video.playbackRate); });
     video.addEventListener("error", function () {
       if (switched) return;
       if (retries >= 40) return useDrivePlayer();
       // 録り終わった直後は、まだ1バイトの仮ファイルしか届いていないことがある → 待って読み直す。
       // それ以外（断られた・見つからない）は、すぐドライブの再生画面に切り替える。
       fetch(SRC + "&probe=" + Date.now(), { headers: { Range: "bytes=0-1" } })
-        .then(function (r) {
-          if (r.status !== 206 && r.status !== 200) throw new Error("status " + r.status);
-          return r.arrayBuffer();
-        })
-        .then(function (buf) { if (buf.byteLength < 2) retryLater(); else if (retries < 3) retryLater(); else useDrivePlayer(); })
+        .then(function (r) { if (r.status !== 206 && r.status !== 200) throw new Error(String(r.status)); return r.arrayBuffer(); })
+        .then(function (buf) { if (buf.byteLength < 2 || retries < 3) retryLater(); else useDrivePlayer(); })
         .catch(function () { useDrivePlayer(); });
     });
-    video.addEventListener("loadeddata", function () {
-      if (retries) note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
-    });
-  } else {
-    note.textContent = "動画のリンクが正しくありません。送られてきたリンクをもう一度開いてください。";
+    // 題名・録った日時・長さ・サムネイル（ドライブの情報から）
+    fetch(API + id + "?fields=name,createdTime,thumbnailLink,videoMediaMetadata&key=" + KEY)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (m) {
+        if (!m) return;
+        var base = String(m.name || "").replace(/\.mp4$/i, "");
+        var t = base.replace(/^\d{4}-\d{2}-\d{2}_\d{4}(\(\d+\))?_?/, "").trim();
+        if (!t) { var mm = base.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})/); t = mm ? (Number(mm[2]) + "月" + Number(mm[3]) + "日 " + mm[4] + ":" + mm[5] + " の説明動画") : "説明動画"; }
+        $("title").textContent = t; document.title = t;
+        $("when").textContent = ago(m.createdTime);
+        if (m.videoMediaMetadata && m.videoMediaMetadata.durationMillis && !video.duration) setDur(m.videoMediaMetadata.durationMillis / 1000);
+        if (m.thumbnailLink && !started) {
+          poster.onload = function () { if (!started) poster.hidden = false; };
+          poster.src = m.thumbnailLink.replace(/=s\d+$/, "=s1280");
+        }
+      }).catch(function () {});
+    if (navigator.share) {
+      $("share").hidden = false;
+      $("share").onclick = function () { navigator.share({ title: document.title, url: location.href }).catch(function () {}); };
+    }
+    $("copy").onclick = function () {
+      var done = function () { toast("リンクをコピーしました"); };
+      if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, done); else done();
+    };
   }
 </script>
 </body>
