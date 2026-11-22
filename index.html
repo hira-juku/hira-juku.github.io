@@ -83,21 +83,28 @@
     };
     video.addEventListener("play", function () { play.hidden = true; if (video.readyState < 2) startWatch(); });
     video.addEventListener("playing", function () { clearTimeout(watchdog); });
+    function retryLater() {
+      retries++;
+      play.hidden = true;
+      note.textContent = "動画を準備しています…（数秒〜1分ほどで始まります）";
+      setTimeout(function () {
+        video.src = SRC + "&r=" + retries;
+        var p = video.play();
+        if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") play.hidden = false; });
+      }, 3000);
+    }
     video.addEventListener("error", function () {
-      // 録り終わった直後は、まだドライブに届ききっていないことがある → 少し待って読み直す（最大2分）
       if (switched) return;
-      if (retries < 40) {
-        retries++;
-        play.hidden = true;
-        note.textContent = "動画を準備しています…（数秒〜1分ほどで始まります）";
-        setTimeout(function () {
-          video.src = SRC + "&r=" + retries;
-          var p = video.play();
-          if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") play.hidden = false; });
-        }, 3000);
-        return;
-      }
-      useDrivePlayer();
+      if (retries >= 40) return useDrivePlayer();
+      // 録り終わった直後は、まだ1バイトの仮ファイルしか届いていないことがある → 待って読み直す。
+      // それ以外（断られた・見つからない）は、すぐドライブの再生画面に切り替える。
+      fetch(SRC + "&probe=" + Date.now(), { headers: { Range: "bytes=0-1" } })
+        .then(function (r) {
+          if (r.status !== 206 && r.status !== 200) throw new Error("status " + r.status);
+          return r.arrayBuffer();
+        })
+        .then(function (buf) { if (buf.byteLength < 2) retryLater(); else if (retries < 3) retryLater(); else useDrivePlayer(); })
+        .catch(function () { useDrivePlayer(); });
     });
     video.addEventListener("loadeddata", function () {
       if (retries) note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
