@@ -42,7 +42,8 @@
   var stage = document.getElementById("stage"), video = document.getElementById("video");
   var frame = document.getElementById("frame"), play = document.getElementById("play"), note = document.getElementById("note");
   var driveView = "https://drive.google.com/file/d/" + id + "/view";
-  var switched = false;
+  var switched = false, retries = 0;
+  var SRC = "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&key=" + KEY;
 
   function useDrivePlayer() {
     if (switched) return;
@@ -62,13 +63,13 @@
     stage.hidden = false;
     video.hidden = false;
     play.hidden = false;
-    video.src = "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&key=" + KEY;
+    video.src = SRC;
     note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
     var watchdog = 0;
     function startWatch() {
       // 再生を押してから12秒たっても映像が出なければ、ドライブの再生画面に切り替える
       clearTimeout(watchdog);
-      watchdog = setTimeout(function () { if (!switched && video.readyState < 2) useDrivePlayer(); }, 12000);
+      watchdog = setTimeout(function () { if (!switched && !retries && video.readyState < 2) useDrivePlayer(); }, 12000);
     }
     play.onclick = function () {
       play.hidden = true;
@@ -82,7 +83,25 @@
     };
     video.addEventListener("play", function () { play.hidden = true; if (video.readyState < 2) startWatch(); });
     video.addEventListener("playing", function () { clearTimeout(watchdog); });
-    video.addEventListener("error", useDrivePlayer);
+    video.addEventListener("error", function () {
+      // 録り終わった直後は、まだドライブに届ききっていないことがある → 少し待って読み直す（最大2分）
+      if (switched) return;
+      if (retries < 40) {
+        retries++;
+        play.hidden = true;
+        note.textContent = "動画を準備しています…（数秒〜1分ほどで始まります）";
+        setTimeout(function () {
+          video.src = SRC + "&r=" + retries;
+          var p = video.play();
+          if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") play.hidden = false; });
+        }, 3000);
+        return;
+      }
+      useDrivePlayer();
+    });
+    video.addEventListener("loadeddata", function () {
+      if (retries) note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
+    });
   } else {
     note.textContent = "動画のリンクが正しくありません。送られてきたリンクをもう一度開いてください。";
   }
