@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>説明動画</title>
 <style>
   * { box-sizing: border-box; }
@@ -12,25 +12,73 @@
     font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
-  .stage { width: 100%; max-width: 1280px; aspect-ratio: 16 / 10; max-height: 88vh; background: #000; }
-  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .stage { position: relative; width: 100%; max-width: 1280px; aspect-ratio: 16 / 10; max-height: 88vh; background: #000; }
+  video, iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; object-fit: contain; }
+  .play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; border: 0; background: rgba(0,0,0,.25); color: #fff; font: inherit; cursor: pointer; }
+  .play .btn { width: 88px; height: 88px; border-radius: 50%; background: #e5352b; display: flex; align-items: center;
+    justify-content: center; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  .play .btn::after { content: ""; margin-left: 7px; border-style: solid; border-width: 18px 0 18px 29px;
+    border-color: transparent transparent transparent #fff; }
+  .play b { font-size: 16px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
   .note { margin: 14px 16px; font-size: 13px; color: #9a9aa0; text-align: center; }
   .note a { color: #d0d0d6; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<div class="stage" id="stage" hidden><iframe id="player" allow="autoplay; fullscreen" allowfullscreen title="説明動画"></iframe></div>
+<div class="stage" id="stage" hidden>
+  <video id="video" controls playsinline preload="metadata" hidden></video>
+  <iframe id="frame" allow="autoplay; fullscreen" allowfullscreen title="説明動画" hidden></iframe>
+  <button class="play" id="play" hidden><span class="btn"></span><b>タップして再生</b></button>
+</div>
 <p class="note" id="note"></p>
 <script>
-  // リンクの # のあとにある Googleドライブの動画IDを読んで、その動画を表示する
+  // リンクの # のあとにある Googleドライブの動画IDを読んで、動画ファイルをそのまま再生する。
+  // ドライブの「再生処理」を待たないので、録り終わってすぐ見られる。
+  // うまくいかないときだけ、ドライブの再生画面（埋め込み）に切り替える。
+  var KEY = "AIzaSyAgyNiDL5sNl-UXOo5W9kNPvXrwln3R8OQ"; // hira-juku.github.io からのドライブ読み込み専用に制限したキー
   var id = (location.hash.slice(1) || "").replace(/[^\w-]/g, "");
-  var note = document.getElementById("note");
-  if (id) {
-    document.getElementById("player").src = "https://drive.google.com/file/d/" + id + "/preview";
-    document.getElementById("stage").hidden = false;
+  var stage = document.getElementById("stage"), video = document.getElementById("video");
+  var frame = document.getElementById("frame"), play = document.getElementById("play"), note = document.getElementById("note");
+  var driveView = "https://drive.google.com/file/d/" + id + "/view";
+  var switched = false;
+
+  function useDrivePlayer() {
+    if (switched) return;
+    switched = true;
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    video.hidden = true;
+    play.hidden = true;
+    frame.src = "https://drive.google.com/file/d/" + id + "/preview";
+    frame.hidden = false;
     note.innerHTML = "▶ を押すと再生します。「再生処理中」と出たら、数分おいてから開き直してください。<br>" +
-      '<a href="https://drive.google.com/file/d/' + id + '/view" rel="noreferrer">うまく見られないときはこちら</a>';
+      '<a href="' + driveView + '">うまく見られないときはこちら</a>';
+  }
+
+  if (id) {
+    stage.hidden = false;
+    video.hidden = false;
+    play.hidden = false;
+    video.src = "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&key=" + KEY;
+    note.innerHTML = '<a href="' + driveView + '">うまく見られないときはこちら</a>';
+    var watchdog = 0;
+    function startWatch() {
+      // 再生を押してから12秒たっても映像が出なければ、ドライブの再生画面に切り替える
+      clearTimeout(watchdog);
+      watchdog = setTimeout(function () { if (!switched && video.readyState < 2) useDrivePlayer(); }, 12000);
+    }
+    play.onclick = function () {
+      play.hidden = true;
+      startWatch();
+      var p = video.play();
+      if (p && p.catch) p.catch(function (e) { if (!e || e.name !== "AbortError") useDrivePlayer(); });
+    };
+    video.addEventListener("play", function () { play.hidden = true; if (video.readyState < 2) startWatch(); });
+    video.addEventListener("playing", function () { clearTimeout(watchdog); });
+    video.addEventListener("error", useDrivePlayer);
   } else {
     note.textContent = "動画のリンクが正しくありません。送られてきたリンクをもう一度開いてください。";
   }
