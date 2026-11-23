@@ -117,7 +117,7 @@
      そのため、縦のままでも動画を90度回して画面いっぱいに出す。本当に横に向けた時は上の CSS が受け持つ。 */
   .exitfs { display: none; position: absolute; top: 12px; right: 12px; z-index: 3; height: 40px; padding: 0 14px; border-radius: 12px; border: 0; cursor: pointer;
     background: rgba(28,28,30,.72); color: #fff; font: inherit; font-size: 15px; align-items: center; gap: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  body.rot { overflow: hidden; background: #000; }
+  body.rot { background: #000; min-height: calc(100vh + 160px); } /* 下に少し動かせる余白（ブラウザの上下のバーを縮めるため） */
   body.rot .info { display: none; }
   body.rot .fs { display: none; }
   body.rot .exitfs { display: flex; }
@@ -344,17 +344,12 @@
   function enterRot() {
     document.body.classList.add("rot"); window.scrollTo(0, 0);
     if (typeof paintCtrl === "function") setTimeout(paintCtrl, 0);
-    // iPhone で Discord などのアプリの中から開くと、画面が回らず上下のバーも消せない。Safari で開けば Loom と同じ全画面になる
-    if (!hinted && IPHONE) {
-      hinted = true;
-      var h = $("hint");
-      h.innerHTML = "スマホを<b>横に向ける</b>と画面いっぱいになります<br>回らないときは、右下の <b>🧭（Safariで開く）</b><br>から開いてください";
-      h.hidden = false; h.style.opacity = "1";
-      setTimeout(function () { h.style.opacity = "0"; setTimeout(function () { h.hidden = true; }, 450); }, 4500);
-    }
+    // アプリの中のブラウザの上下のバー（URL・戻る・共有など）は、下にスクロールすると縮むので、少しだけ下へ動かす
+    setTimeout(function () { window.scrollTo(0, 160); }, 250);
   }
   function exitRot() {
     document.body.classList.remove("rot");
+    window.scrollTo(0, 0);
     setTimeout(paintCtrl, 0);
     if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
   }
