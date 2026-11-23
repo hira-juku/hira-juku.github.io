@@ -65,6 +65,18 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.on { opacity: 1; }
   [hidden] { display: none !important; }
+
+  /* ---------- スマホを横に向けたら、動画を画面いっぱいに ---------- */
+  @media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+    html, body { background: #000; overflow: hidden; height: 100%; }
+    .wrap { padding: 0 !important; max-width: none; }
+    .card { box-shadow: none !important; border-radius: 0 !important; background: #000 !important; }
+    .stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; z-index: 10; background: #000; }
+    .stage video, .stage iframe { background: #000; }
+    .pill { top: max(10px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+    .fs { display: none; }
+    .info { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -208,6 +220,19 @@
     video.src = SRC + "#t=0.5";
     cover.onclick = begin;
     $("fs").onclick = fullscreen;
+    // 横に向けたとき：画面いっぱいの表示は CSS が受け持つ。Android では本物の全画面も試す（だめでも表示は横いっぱいのまま）
+    var landscape = window.matchMedia("(orientation: landscape) and (max-height: 540px) and (pointer: coarse)");
+    var onTurn = function () {
+      if (landscape.matches) {
+        window.scrollTo(0, 0);
+        if (started && !switched && document.fullscreenEnabled && !document.fullscreenElement) {
+          try { var r = $("stage").requestFullscreen(); if (r && r.catch) r.catch(function () {}); } catch (e) {}
+        }
+      } else if (document.fullscreenElement) {
+        try { document.exitFullscreen().catch(function () {}); } catch (e) {}
+      }
+    };
+    if (landscape.addEventListener) landscape.addEventListener("change", onTurn); else if (landscape.addListener) landscape.addListener(onTurn);
     video.addEventListener("loadedmetadata", function () { setDur(video.duration); video.playbackRate = speed; });
     video.addEventListener("loadeddata", function () { $("wait").hidden = true; });
     video.addEventListener("play", function () { cover.hidden = true; poster.hidden = true; });
