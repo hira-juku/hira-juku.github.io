@@ -533,10 +533,16 @@
       var p = video.play(); if (p && p.catch) p.catch(function () {});
     }
     var q = encodeURIComponent("'" + SIDE + "' in parents and name = '" + id + ".json' and trashed = false");
-    fetch(API + "?q=" + q + "&fields=files(id)&key=" + KEY)
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (l) { if (l && l.files && l.files[0]) return fetch(API + l.files[0].id + "?alt=media&key=" + KEY); })
-      .then(function (r) { return r && r.ok ? r.json() : null; })
+    // 要約と文字起こし：まず中継ぎから（家庭の回線が Google に止められていても読める）、だめならドライブから直接
+    var direct = function () {
+      return fetch(API + "?q=" + q + "&fields=files(id)&key=" + KEY)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (l) { if (l && l.files && l.files[0]) return fetch(API + l.files[0].id + "?alt=media&key=" + KEY); })
+        .then(function (r) { return r && r.ok ? r.json() : null; });
+    };
+    fetch(RELAY.replace("/v/", "/t/") + id)
+      .then(function (r) { return r.ok ? r.json() : direct(); }, direct)
+      .catch(function () { return null; })
       .then(function (t) {
         if (!t) return;
         if (t.title && /^説明動画$|の説明動画$/.test($("title").textContent)) { $("title").textContent = t.title; document.title = t.title; }
