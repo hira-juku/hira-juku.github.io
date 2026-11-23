@@ -32,6 +32,26 @@
   .fs { position: absolute; top: 12px; right: 12px; width: 44px; height: 40px; border-radius: 12px; border: 0; cursor: pointer;
     background: rgba(28,28,30,.72); color: #fff; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .fs svg { width: 20px; height: 20px; }
+  /* Loom のような自前の操作バー（動画の下に、再生・時間・シークバー・速さ・全画面） */
+  .ctrl { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 16px 12px 4px; color: #fff;
+    background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.5)); transition: opacity .25s; }
+  .bar { position: relative; height: 24px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+  .bar .track, .bar .buf, .bar .done { position: absolute; left: 0; height: 4px; border-radius: 2px; }
+  .bar .track { right: 0; background: rgba(255,255,255,.3); }
+  .bar .buf { background: rgba(255,255,255,.45); width: 0; }
+  .bar .done { background: var(--blue); width: 0; }
+  .bar .knob { position: absolute; left: 0; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .row { display: flex; align-items: center; gap: 4px; }
+  .row button { display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 8px; border: 0; background: none; color: #fff; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; }
+  .row svg { width: 24px; height: 24px; }
+  .row .time { font-size: 14px; font-variant-numeric: tabular-nums; padding: 0 4px; white-space: nowrap; }
+  .row .gap { flex: 1; }
+  .stage.hide-ui .ctrl, .stage.hide-ui .exitfs { opacity: 0; pointer-events: none; }
+  .stage.playing-ui .pill, .stage.playing-ui .fs { display: none; }
+  .spin { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    border: 4px solid rgba(255,255,255,.28); border-top-color: #fff; animation: spin .9s linear infinite; pointer-events: none; z-index: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stage.drive .exitfs { right: auto; left: 12px; }
   .wait { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
     background: rgba(28,28,30,.78); color: #fff; font-size: 13px; white-space: nowrap; }
 
@@ -76,6 +96,7 @@
     .pill { top: max(10px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
     .fs { display: none; }
     .info { display: none; }
+    #cfs { display: none; } /* 本当に横にしている時は、縦に戻せば元に戻る */
   }
 
   /* ---------- 全画面ボタン（スマホ）：ページの中で動画を横向きに広げる ----------
@@ -87,6 +108,7 @@
   body.rot .info { display: none; }
   body.rot .fs { display: none; }
   body.rot .exitfs { display: flex; }
+  body.rot .stage.playing-ui .exitfs { display: none; } /* 自前の操作バーの「縮小」で戻る */
   @media (orientation: portrait) {
     body.rot .stage { position: fixed; top: 0; left: 100vw; width: 100vh; width: 100dvh; height: 100vw; aspect-ratio: auto;
       transform-origin: top left; transform: rotate(90deg); z-index: 20; background: #000; }
@@ -107,6 +129,17 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
     </button>
     <button class="exitfs" id="exitfs" aria-label="全画面をやめる">✕ 閉じる</button>
+    <div class="spin" id="spin" hidden></div>
+    <div class="ctrl" id="ctrl" hidden>
+      <div class="bar" id="bar"><div class="track"></div><div class="buf" id="buf"></div><div class="done" id="done"></div><div class="knob" id="knob"></div></div>
+      <div class="row">
+        <button id="cplay" aria-label="再生・一時停止"></button>
+        <span class="time" id="ctime">0:00 / 0:00</span>
+        <span class="gap"></span>
+        <button id="cspeed" aria-label="再生速度を変える">1x</button>
+        <button id="cfs" aria-label="全画面"></button>
+      </div>
+    </div>
     <div class="wait" id="wait" hidden>動画を準備しています…（数秒〜1分ほどで始まります）</div>
   </div>
 
@@ -185,6 +218,7 @@
   function setSpeed(v) {
     speed = v; video.playbackRate = v;
     $("pillSpeed").textContent = (v === 1 ? "1" : v) + "x";
+    $("cspeed").textContent = (v === 1 ? "1" : v) + "x";
     [].forEach.call($("speeds").children, function (b) { b.classList.toggle("on", Number(b.dataset.v) === v); });
     try { localStorage.setItem("hira-speed", String(v)); } catch (e) {}
   }
@@ -195,6 +229,8 @@
     switched = true; clearTimeout(watchdog);
     video.pause(); video.removeAttribute("src"); video.load(); video.hidden = true;
     cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("wait").hidden = true;
+    $("ctrl").hidden = true; $("spin").hidden = true;
+    var st = $("stage"); st.classList.add("drive"); st.classList.remove("playing-ui", "hide-ui");
     frame.src = "https://drive.google.com/file/d/" + id + "/preview";
     frame.hidden = false;
     countView(); // ドライブの再生画面に切り替えた時は、中の再生を見られないので、切り替えた時点で1回と数える
@@ -215,7 +251,7 @@
   function begin() {
     started = true;
     cover.hidden = true; poster.hidden = true;
-    video.controls = true;
+    $("ctrl").hidden = false; $("stage").classList.add("playing-ui");
     video.playbackRate = speed;
     startWatch();
     if (startAt) { try { video.currentTime = startAt; } catch (e) {} startAt = 0; }
@@ -225,9 +261,52 @@
       if (!e || e.name !== "AbortError") useDrivePlayer();
     });
   }
-  function enterRot() { document.body.classList.add("rot"); window.scrollTo(0, 0); }
+
+  // ---------- 自前の操作バー ----------
+  var ICON = {
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>',
+    expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>',
+    shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 4v4a1 1 0 0 1-1 1H4M15 4v4a1 1 0 0 0 1 1h4M9 20v-4a1 1 0 0 0-1-1H4M15 20v-4a1 1 0 0 1 1-1h4"/></svg>'
+  };
+  function clock(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
+    return (h ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (x < 10 ? "0" : "") + x;
+  }
+  function isFull() { return document.body.classList.contains("rot") || !!document.fullscreenElement; }
+  function paintCtrl() {
+    var d = video.duration, t = video.currentTime;
+    var ok = d && isFinite(d);
+    var pct = ok ? Math.min(100, t / d * 100) : 0;
+    $("done").style.width = pct + "%"; $("knob").style.left = pct + "%";
+    if (ok && video.buffered.length) $("buf").style.width = Math.min(100, video.buffered.end(video.buffered.length - 1) / d * 100) + "%";
+    $("ctime").textContent = clock(t) + " / " + (ok ? clock(d) : "--:--");
+    $("cplay").innerHTML = video.paused ? ICON.play : ICON.pause;
+    $("cfs").innerHTML = isFull() ? ICON.shrink : ICON.expand;
+  }
+  var hideTimer = 0;
+  function showUi() {
+    var st = $("stage"); st.classList.remove("hide-ui");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function () { if (!video.paused && !dragging) st.classList.add("hide-ui"); }, 2800);
+  }
+  function togglePlay() {
+    if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); } else video.pause();
+  }
+  var dragging = false;
+  function seekFromPoint(e) {
+    var r = $("bar").getBoundingClientRect();
+    // ページの中で90度回している時は、画面の縦方向がシークバーの向きになる
+    var portraitRot = document.body.classList.contains("rot") && window.matchMedia("(orientation: portrait)").matches;
+    var f = portraitRot ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
+    f = Math.max(0, Math.min(1, f));
+    if (video.duration && isFinite(video.duration)) { video.currentTime = f * video.duration; paintCtrl(); }
+  }
+  function enterRot() { document.body.classList.add("rot"); window.scrollTo(0, 0); if (typeof paintCtrl === "function") setTimeout(paintCtrl, 0); }
   function exitRot() {
     document.body.classList.remove("rot");
+    setTimeout(paintCtrl, 0);
     if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
   }
   function fullscreen() {
@@ -292,7 +371,40 @@
         .then(function () { done = true; clearTimeout(t); }) // 読めた（届ききる前の仮ファイルなら、動画のエラーの方で待って読み直す）
         .catch(function () { if (done) return; done = true; clearTimeout(t); if (!switched && video.readyState < 2) useDrivePlayer(); });
     })();
-    cover.onclick = begin;
+    cover.onclick = function () { if (started) { cover.hidden = true; togglePlay(); } else begin(); };
+    $("cplay").onclick = function (e) { e.stopPropagation(); togglePlay(); showUi(); };
+    $("cspeed").onclick = function (e) { e.stopPropagation(); var i = SPEEDS.indexOf(speed); setSpeed(SPEEDS[(i + 1) % SPEEDS.length]); toast(speed + "倍速"); showUi(); };
+    $("cfs").onclick = function (e) { e.stopPropagation(); if (isFull()) exitRot(); else fullscreen(); setTimeout(paintCtrl, 300); showUi(); };
+    $("ctrl").addEventListener("click", function (e) { e.stopPropagation(); showUi(); });
+    // 動画をタップ：操作バーが隠れていれば出す。出ていれば一時停止／再生
+    video.addEventListener("click", function () {
+      if (!started || switched) return;
+      if ($("stage").classList.contains("hide-ui")) showUi(); else { togglePlay(); showUi(); }
+    });
+    var bar = $("bar");
+    bar.addEventListener("pointerdown", function (e) { dragging = true; try { bar.setPointerCapture(e.pointerId); } catch (x) {} seekFromPoint(e); showUi(); e.preventDefault(); });
+    bar.addEventListener("pointermove", function (e) { if (dragging) seekFromPoint(e); });
+    bar.addEventListener("pointerup", function () { dragging = false; showUi(); });
+    bar.addEventListener("pointercancel", function () { dragging = false; });
+    ["play", "pause", "timeupdate", "progress", "durationchange", "loadedmetadata"].forEach(function (ev) { video.addEventListener(ev, paintCtrl); });
+    video.addEventListener("play", showUi);
+    video.addEventListener("pause", function () {
+      $("stage").classList.remove("hide-ui"); clearTimeout(hideTimer);
+      if (started && !switched && !dragging && !video.ended) cover.hidden = false; // 一時停止中は真ん中に青い再生ボタン
+    });
+    video.addEventListener("waiting", function () { if (started && !switched) $("spin").hidden = false; });
+    video.addEventListener("playing", function () { $("spin").hidden = true; });
+    video.addEventListener("canplay", function () { $("spin").hidden = true; });
+    video.addEventListener("ended", function () { $("stage").classList.remove("hide-ui"); });
+    document.addEventListener("fullscreenchange", paintCtrl);
+    // パソコン：スペースで再生・一時停止、←→で5秒戻る・進む
+    document.addEventListener("keydown", function (e) {
+      if (!started || switched || /INPUT|TEXTAREA/.test((e.target || {}).tagName || "")) return;
+      if (e.key === " " || e.key === "k") { e.preventDefault(); togglePlay(); showUi(); }
+      else if (e.key === "ArrowRight") { video.currentTime = Math.min(video.duration || 0, video.currentTime + 5); showUi(); }
+      else if (e.key === "ArrowLeft") { video.currentTime = Math.max(0, video.currentTime - 5); showUi(); }
+    });
+    paintCtrl();
     $("fs").onclick = fullscreen;
     $("exitfs").onclick = exitRot;
     // iPhone の動画の中の全画面ボタンは、アプリの中だと縦のまま固まることがある → ページの中の横向き表示に切り替える
