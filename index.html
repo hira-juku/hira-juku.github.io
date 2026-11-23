@@ -97,7 +97,7 @@
   <div class="info">
     <div class="who">
       <div class="avatar">ヒ</div>
-      <div><b>ヒラ</b><span id="when"></span></div>
+      <div><b>ヒラ</b><span id="when"></span><span id="views"></span></div>
     </div>
     <h1 id="title">説明動画</h1>
     <p class="access">リンクを知っている人が見られます</p>
@@ -123,7 +123,8 @@
   // ドライブの「再生処理」を待たないので、録り終わってすぐ見られる。うまくいかない時だけドライブの再生画面に切り替える。
   var KEY = "AIzaSyAgyNiDL5sNl-UXOo5W9kNPvXrwln3R8OQ"; // hira-juku.github.io からのドライブ読み込み専用に制限したキー
   var API = "https://www.googleapis.com/drive/v3/files/";
-  var SIDE = "1QtXIoi0XBtKaEcVR--EaC4sW9-KGvMfB"; // ドライブの「_文字起こし」フォルダ（録ったあと自動で文字起こしが置かれる）
+  var SIDE = "1QtXIoi0XBtKaEcVR--EaC4sW9-KGvMfB";
+  var VIEWS = "https://script.google.com/macros/s/AKfycbx9XVSy53mwsJ4K5ufrB4Q07DcTWo6mkafs2GcBoDsLimSNAXvsHTpwwsAcMeWWxxxkJg/exec"; // 視聴数を数える Apps Script（ヒラさんのスプレッドシート「ヒラ録画_視聴記録」） // ドライブの「_文字起こし」フォルダ（録ったあと自動で文字起こしが置かれる）
   var id = (location.hash.slice(1).split("&")[0] || "").replace(/[^\w-]/g, "");
   var $ = function (x) { return document.getElementById(x); };
   var video = $("video"), frame = $("frame"), cover = $("cover"), poster = $("poster");
@@ -132,6 +133,23 @@
   var speed = 1, switched = false, retries = 0, started = false, watchdog = 0;
   var startAt = Number((location.hash.match(/[&?]t=(\d+)/) || [])[1] || 0);
   try { speed = Number(localStorage.getItem("hira-speed")) || 1; } catch (e) {}
+  // 視聴数：ヒラさん本人が一覧ページから開いた端末（&me=1）は数えない。生徒は名前のない乱数で「同じ端末は1人」と数える
+  var owner = false, viewer = "";
+  try {
+    if (/[&?]me=1/.test(location.hash)) { localStorage.setItem("hira-owner", "1"); history.replaceState(null, "", location.href.replace(/&me=1/, "")); }
+    owner = localStorage.getItem("hira-owner") === "1";
+    viewer = localStorage.getItem("hira-viewer") || "";
+    if (!viewer) { viewer = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("hira-viewer", viewer); }
+  } catch (e) { viewer = Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  function showViews(n) { if (n > 0) $("views").textContent = "・" + n + "人が視聴"; }
+  var counted = false;
+  function countView() {
+    if (counted || owner || !id) return;
+    counted = true;
+    var dev = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) ? "mobile" : "pc";
+    fetch(VIEWS, { method: "POST", body: JSON.stringify({ id: id, v: viewer, dev: dev }) })
+      .then(function (r) { return r.json(); }).then(function (d) { if (d && d.viewers) showViews(d.viewers); }).catch(function () {});
+  }
 
   function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); setTimeout(function () { el.classList.remove("on"); }, 1600); }
   function fmtDur(sec) {
@@ -163,6 +181,7 @@
     cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("fs").hidden = true; $("wait").hidden = true;
     frame.src = "https://drive.google.com/file/d/" + id + "/preview";
     frame.hidden = false;
+    countView(); // ドライブの再生画面に切り替えた時は、中の再生を見られないので、切り替えた時点で1回と数える
     $("speeds").hidden = true;
   }
   function startWatch() {
@@ -236,7 +255,8 @@
     video.addEventListener("loadedmetadata", function () { setDur(video.duration); video.playbackRate = speed; });
     video.addEventListener("loadeddata", function () { $("wait").hidden = true; });
     video.addEventListener("play", function () { cover.hidden = true; poster.hidden = true; });
-    video.addEventListener("playing", function () { clearTimeout(watchdog); $("wait").hidden = true; });
+    video.addEventListener("playing", function () { clearTimeout(watchdog); $("wait").hidden = true; countView(); });
+    fetch(VIEWS + "?id=" + id).then(function (r) { return r.json(); }).then(function (d) { if (d && d.viewers) showViews(d.viewers); }).catch(function () {});
     video.addEventListener("ratechange", function () { if (video.playbackRate !== speed && SPEEDS.indexOf(video.playbackRate) >= 0) setSpeed(video.playbackRate); });
     video.addEventListener("error", function () {
       if (switched) return;
