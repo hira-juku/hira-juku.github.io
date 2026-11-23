@@ -237,6 +237,7 @@
     cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("wait").hidden = true;
     $("ctrl").hidden = true; $("spin").hidden = true;
     var st = $("stage"); st.classList.add("drive"); st.classList.remove("playing-ui", "hide-ui");
+    document.body.classList.remove("rot"); $("fs").hidden = true; $("hint").hidden = true;
     frame.src = "https://drive.google.com/file/d/" + id + "/preview";
     frame.hidden = false;
     countView(); // ドライブの再生画面に切り替えた時は、中の再生を見られないので、切り替えた時点で1回と数える
@@ -338,7 +339,7 @@
   function fullscreen() {
     if (switched) {
       // ドライブの再生画面のとき：スマホはページの中で横向きに広げる（アプリの中のブラウザでは本物の全画面が使えないため）
-      if (window.matchMedia("(pointer: coarse)").matches) { enterRot(); return; }
+      if (window.matchMedia("(pointer: coarse)").matches) return; // 回すとドライブの操作がおかしくなるので、スマホでは何もしない
       if (frame.requestFullscreen) frame.requestFullscreen();
       return;
     }
