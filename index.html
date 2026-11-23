@@ -32,20 +32,27 @@
   .fs { position: absolute; top: 12px; right: 12px; width: 44px; height: 40px; border-radius: 12px; border: 0; cursor: pointer;
     background: rgba(28,28,30,.72); color: #fff; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .fs svg { width: 20px; height: 20px; }
-  /* Loom のような自前の操作バー（動画の下に、再生・時間・シークバー・速さ・全画面） */
-  .ctrl { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 16px 12px 4px; color: #fff;
-    background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.5)); transition: opacity .25s; }
-  .bar { position: relative; height: 24px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+  /* YouTube のような操作（動画の上に重ねる）：上に題名、真ん中に 10秒戻る・再生/一時停止・10秒進む、下に時間・速さ・全画面とシークバー */
+  .ctrl { position: absolute; inset: 0; z-index: 2; color: #fff; background: rgba(0,0,0,.38); transition: opacity .25s; }
+  .ctitle { display: none; position: absolute; left: 16px; right: 16px; top: 12px; font-size: 17px; font-weight: 700; line-height: 1.35;
+    text-shadow: 0 1px 4px rgba(0,0,0,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.rot .ctitle { display: block; }
+  .cmid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 34px; }
+  .round { display: flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: rgba(0,0,0,.42); color: #fff; cursor: pointer; padding: 0; }
+  .round.lg { width: 62px; height: 62px; } .round.lg svg { width: 30px; height: 30px; }
+  .round.sm { width: 46px; height: 46px; } .round.sm svg { width: 26px; height: 26px; }
+  .cbot { position: absolute; left: 12px; right: 12px; bottom: 2px; }
+  .crow { display: flex; align-items: center; gap: 8px; }
+  .crow .gap { flex: 1; }
+  .tpill { padding: 4px 11px; border-radius: 999px; background: rgba(0,0,0,.5); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pillbtn { padding: 5px 12px; border: 0; border-radius: 999px; background: rgba(0,0,0,.5); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .crow .round.sm { width: 38px; height: 38px; background: rgba(0,0,0,.5); } .crow .round.sm svg { width: 20px; height: 20px; }
+  .bar { position: relative; height: 22px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
   .bar .track, .bar .buf, .bar .done { position: absolute; left: 0; height: 4px; border-radius: 2px; }
-  .bar .track { right: 0; background: rgba(255,255,255,.3); }
-  .bar .buf { background: rgba(255,255,255,.45); width: 0; }
+  .bar .track { right: 0; background: rgba(255,255,255,.35); }
+  .bar .buf { background: rgba(255,255,255,.55); width: 0; }
   .bar .done { background: var(--blue); width: 0; }
-  .bar .knob { position: absolute; left: 0; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-  .row { display: flex; align-items: center; gap: 4px; }
-  .row button { display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 8px; border: 0; background: none; color: #fff; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700; }
-  .row svg { width: 24px; height: 24px; }
-  .row .time { font-size: 14px; font-variant-numeric: tabular-nums; padding: 0 4px; white-space: nowrap; }
-  .row .gap { flex: 1; }
+  .bar .knob { position: absolute; left: 0; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 2px #fff; }
   .stage.hide-ui .ctrl, .stage.hide-ui .exitfs, .stage.hide-ui .pill, .stage.hide-ui .fs { opacity: 0; pointer-events: none; }
   .stage.hide-ui { cursor: none; }
   .stage.playing-ui .pill, .stage.playing-ui .fs { display: none; }
@@ -102,6 +109,7 @@
     .fs { display: none; }
     .info { display: none; }
     #cfs { display: none; } /* 本当に横にしている時は、縦に戻せば元に戻る */
+    .ctitle { display: block; }
   }
 
   /* ---------- 全画面ボタン（スマホ）：ページの中で動画を横向きに広げる ----------
@@ -116,7 +124,7 @@
   body.rot .stage.playing-ui .exitfs { display: none; } /* 自前の操作バーの「縮小」で戻る */
   @media (orientation: portrait) {
     body.rot .stage { position: fixed; top: 0; left: 100vw; width: 100vh; width: 100dvh; height: 100vw; aspect-ratio: auto;
-      transform-origin: top left; transform: rotate(90deg); z-index: 20; background: #000; }
+      transform-origin: top left; transform: rotate(90deg) translateZ(0); will-change: transform; z-index: 20; background: #000; }
     body.rot .stage video { background: #000; }
   }
 </style>
@@ -137,13 +145,20 @@
     <div class="spin" id="spin" hidden></div>
     <div class="hint" id="hint" hidden></div>
     <div class="ctrl" id="ctrl" hidden>
-      <div class="bar" id="bar"><div class="track"></div><div class="buf" id="buf"></div><div class="done" id="done"></div><div class="knob" id="knob"></div></div>
-      <div class="row">
-        <button id="cplay" aria-label="再生・一時停止"></button>
-        <span class="time" id="ctime">0:00 / 0:00</span>
-        <span class="gap"></span>
-        <button id="cspeed" aria-label="再生速度を変える">1x</button>
-        <button id="cfs" aria-label="全画面"></button>
+      <div class="ctitle" id="ctitle"></div>
+      <div class="cmid">
+        <button class="round sm" id="cback" aria-label="10秒戻る"></button>
+        <button class="round lg" id="cplay" aria-label="再生・一時停止"></button>
+        <button class="round sm" id="cfwd" aria-label="10秒進む"></button>
+      </div>
+      <div class="cbot">
+        <div class="crow">
+          <span class="tpill" id="ctime">0:00 / 0:00</span>
+          <span class="gap"></span>
+          <button class="pillbtn" id="cspeed" aria-label="再生速度を変える">1x</button>
+          <button class="round sm" id="cfs" aria-label="全画面"></button>
+        </div>
+        <div class="bar" id="bar"><div class="track"></div><div class="buf" id="buf"></div><div class="done" id="done"></div><div class="knob" id="knob"></div></div>
       </div>
     </div>
     <div class="wait" id="wait" hidden>動画を準備しています…（数秒〜1分ほどで始まります）</div>
@@ -274,6 +289,8 @@
     play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
     pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>',
     expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><text x="12" y="15.6" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,sans-serif">10</text></svg>',
+    fwd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/><text x="12" y="15.6" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="-apple-system,sans-serif">10</text></svg>',
     shrink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 4v4a1 1 0 0 1-1 1H4M15 4v4a1 1 0 0 0 1 1h4M9 20v-4a1 1 0 0 0-1-1H4M15 20v-4a1 1 0 0 1 1-1h4"/></svg>'
   };
   function clock(sec) {
@@ -290,6 +307,8 @@
     if (ok && video.buffered.length) $("buf").style.width = Math.min(100, video.buffered.end(video.buffered.length - 1) / d * 100) + "%";
     $("ctime").textContent = clock(t) + " / " + (ok ? clock(d) : "--:--");
     $("cplay").innerHTML = video.paused ? ICON.play : ICON.pause;
+    if (!$("cback").innerHTML) { $("cback").innerHTML = ICON.back; $("cfwd").innerHTML = ICON.fwd; }
+    $("ctitle").textContent = $("title").textContent;
     $("cfs").innerHTML = isFull() ? ICON.shrink : ICON.expand;
   }
   var hideTimer = 0;
@@ -318,12 +337,15 @@
     f = Math.max(0, Math.min(1, f));
     if (video.duration && isFinite(video.duration)) { video.currentTime = f * video.duration; paintCtrl(); }
   }
+  // iPhone の全画面プレーヤーは、Discord などアプリの中で開くと横に回らない（見分けもつかない）。
+  // そのため iPhone ではページの中で90度回す。Safari で開いてスマホを横にすれば、ページごと横になって画面いっぱいになる
+  var IPHONE = /iPhone|iPod/.test(navigator.userAgent);
   var hinted = false;
   function enterRot() {
     document.body.classList.add("rot"); window.scrollTo(0, 0);
     if (typeof paintCtrl === "function") setTimeout(paintCtrl, 0);
     // iPhone で Discord などのアプリの中から開くと、画面が回らず上下のバーも消せない。Safari で開けば Loom と同じ全画面になる
-    if (!hinted && /iPhone|iPod/.test(navigator.userAgent)) {
+    if (!hinted && IPHONE) {
       hinted = true;
       var h = $("hint");
       h.innerHTML = "スマホを<b>横に向ける</b>と画面いっぱいになります<br>回らないときは、右下の <b>🧭（Safariで開く）</b><br>から開いてください";
@@ -400,14 +422,19 @@
     })();
     cover.onclick = function () { if (started) { cover.hidden = true; togglePlay(); } else begin(); };
     $("cplay").onclick = function (e) { e.stopPropagation(); togglePlay(); showUi(); };
+    var skip = function (sec) { if (video.duration && isFinite(video.duration)) video.currentTime = Math.max(0, Math.min(video.duration - 0.3, video.currentTime + sec)); paintCtrl(); showUi(); };
+    $("cback").onclick = function (e) { e.stopPropagation(); skip(-10); };
+    $("cfwd").onclick = function (e) { e.stopPropagation(); skip(10); };
     $("cspeed").onclick = function (e) { e.stopPropagation(); var i = SPEEDS.indexOf(speed); setSpeed(SPEEDS[(i + 1) % SPEEDS.length]); toast(speed + "倍速"); showUi(); };
     $("cfs").onclick = function (e) { e.stopPropagation(); if (isFull()) exitRot(); else fullscreen(); setTimeout(paintCtrl, 300); showUi(); };
-    $("ctrl").addEventListener("click", function (e) { e.stopPropagation(); showUi(); });
-    // 動画をタップ：操作バーが隠れていれば出す。出ていれば一時停止／再生
-    video.addEventListener("click", function () {
-      if (!started || switched) return;
-      if ($("stage").classList.contains("hide-ui")) showUi(); else { togglePlay(); showUi(); }
+    // 何もないところをタップ：操作が出ていれば隠す（再生中だけ）。隠れていれば video のタップで出す
+    $("ctrl").addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (e.target !== $("ctrl") && e.target !== $("ctitle")) return showUi();
+      if (!video.paused) { clearTimeout(hideTimer); $("stage").classList.add("hide-ui"); } else showUi();
     });
+    video.addEventListener("click", function () { if (started && !switched) showUi(); });
+    $("stage").addEventListener("mousemove", function () { if (started && !switched && window.matchMedia("(pointer: fine)").matches) showUi(); });
     var bar = $("bar");
     bar.addEventListener("pointerdown", function (e) { dragging = true; try { bar.setPointerCapture(e.pointerId); } catch (x) {} seekFromPoint(e); showUi(); e.preventDefault(); });
     bar.addEventListener("pointermove", function (e) { if (dragging) seekFromPoint(e); });
@@ -416,10 +443,10 @@
     document.addEventListener("pointerup", function () { dragging = false; });
     document.addEventListener("touchend", function () { dragging = false; });
     ["play", "pause", "timeupdate", "progress", "durationchange", "loadedmetadata"].forEach(function (ev) { video.addEventListener(ev, paintCtrl); });
-    video.addEventListener("play", function () { $("stage").classList.remove("hide-ui"); hideSoon(900); });
+    video.addEventListener("play", function () { $("stage").classList.remove("hide-ui"); hideSoon(1500); });
     video.addEventListener("pause", function () {
       $("stage").classList.remove("hide-ui"); clearTimeout(hideTimer);
-      if (started && !switched && !dragging && !video.ended) cover.hidden = false; // 一時停止中は真ん中に青い再生ボタン
+      cover.hidden = true; // 一時停止中は、真ん中の再生ボタンを含む操作をそのまま出す
     });
     video.addEventListener("waiting", function () { if (started && !switched) $("spin").hidden = false; });
     video.addEventListener("playing", function () { $("spin").hidden = true; });
