@@ -194,7 +194,7 @@
     if (switched) return;
     switched = true; clearTimeout(watchdog);
     video.pause(); video.removeAttribute("src"); video.load(); video.hidden = true;
-    cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("fs").hidden = true; $("wait").hidden = true;
+    cover.hidden = true; poster.hidden = true; $("pill").hidden = true; $("wait").hidden = true;
     frame.src = "https://drive.google.com/file/d/" + id + "/preview";
     frame.hidden = false;
     countView(); // ドライブの再生画面に切り替えた時は、中の再生を見られないので、切り替えた時点で1回と数える
@@ -231,7 +231,12 @@
     if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
   }
   function fullscreen() {
-    if (switched) { if (frame.requestFullscreen) frame.requestFullscreen(); return; }
+    if (switched) {
+      // ドライブの再生画面のとき：スマホはページの中で横向きに広げる（アプリの中のブラウザでは本物の全画面が使えないため）
+      if (window.matchMedia("(pointer: coarse)").matches) { enterRot(); return; }
+      if (frame.requestFullscreen) frame.requestFullscreen();
+      return;
+    }
     if (!started) begin();
     var st = $("stage");
     if (window.matchMedia("(pointer: coarse)").matches) {
@@ -262,6 +267,13 @@
     $("stage").hidden = true;
   } else {
     $("driveLink").href = "https://drive.google.com/file/d/" + id + "/view";
+    $("driveLink").onclick = function (e) {
+      if (switched) return; // もう切り替えてあれば、ドライブのページを開く
+      e.preventDefault();
+      useDrivePlayer();
+      $("driveLink").textContent = "Googleドライブのページで開く";
+      window.scrollTo(0, 0);
+    };
     // 速度ボタン
     SPEEDS.forEach(function (v) {
       var b = document.createElement("button"); b.dataset.v = v; b.textContent = (v === 1 ? "1" : v) + "倍";
@@ -272,6 +284,14 @@
     $("pill").onclick = function () { var i = SPEEDS.indexOf(speed); setSpeed(SPEEDS[(i + 1) % SPEEDS.length]); toast(speed + "倍速"); };
     // 最初の一コマを見せる（ドライブのサムネイルが無い間の代わり）
     video.src = SRC + "#t=0.5";
+    (function probe() {
+      var done = false;
+      var t = setTimeout(function () { if (!done && !switched && video.readyState < 2) { done = true; useDrivePlayer(); } }, 8000);
+      fetch(SRC + "&probe=1", { headers: { Range: "bytes=0-1" } })
+        .then(function (r) { if (r.status !== 206 && r.status !== 200) throw new Error(String(r.status)); return r.arrayBuffer(); })
+        .then(function () { done = true; clearTimeout(t); }) // 読めた（届ききる前の仮ファイルなら、動画のエラーの方で待って読み直す）
+        .catch(function () { if (done) return; done = true; clearTimeout(t); if (!switched && video.readyState < 2) useDrivePlayer(); });
+    })();
     cover.onclick = begin;
     $("fs").onclick = fullscreen;
     $("exitfs").onclick = exitRot;
