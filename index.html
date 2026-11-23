@@ -46,7 +46,8 @@
   .row svg { width: 24px; height: 24px; }
   .row .time { font-size: 14px; font-variant-numeric: tabular-nums; padding: 0 4px; white-space: nowrap; }
   .row .gap { flex: 1; }
-  .stage.hide-ui .ctrl, .stage.hide-ui .exitfs { opacity: 0; pointer-events: none; }
+  .stage.hide-ui .ctrl, .stage.hide-ui .exitfs, .stage.hide-ui .pill, .stage.hide-ui .fs { opacity: 0; pointer-events: none; }
+  .stage.hide-ui { cursor: none; }
   .stage.playing-ui .pill, .stage.playing-ui .fs { display: none; }
   .spin { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
     border: 4px solid rgba(255,255,255,.28); border-top-color: #fff; animation: spin .9s linear infinite; pointer-events: none; z-index: 1; }
@@ -286,10 +287,18 @@
     $("cfs").innerHTML = isFull() ? ICON.shrink : ICON.expand;
   }
   var hideTimer = 0;
-  function showUi() {
-    var st = $("stage"); st.classList.remove("hide-ui");
+  // 再生中は、操作バー・時間・速さ・全画面ボタンなどを隠して動画だけにする。タップした時だけ少し出す
+  function hideSoon(ms) {
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(function () { if (!video.paused && !dragging) st.classList.add("hide-ui"); }, 2800);
+    hideTimer = setTimeout(function () {
+      if (video.paused) return;
+      if (dragging) return hideSoon(800);
+      $("stage").classList.add("hide-ui");
+    }, ms);
+  }
+  function showUi() {
+    $("stage").classList.remove("hide-ui");
+    hideSoon(2200);
   }
   function togglePlay() {
     if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); } else video.pause();
@@ -386,8 +395,10 @@
     bar.addEventListener("pointermove", function (e) { if (dragging) seekFromPoint(e); });
     bar.addEventListener("pointerup", function () { dragging = false; showUi(); });
     bar.addEventListener("pointercancel", function () { dragging = false; });
+    document.addEventListener("pointerup", function () { dragging = false; });
+    document.addEventListener("touchend", function () { dragging = false; });
     ["play", "pause", "timeupdate", "progress", "durationchange", "loadedmetadata"].forEach(function (ev) { video.addEventListener(ev, paintCtrl); });
-    video.addEventListener("play", showUi);
+    video.addEventListener("play", function () { $("stage").classList.remove("hide-ui"); hideSoon(900); });
     video.addEventListener("pause", function () {
       $("stage").classList.remove("hide-ui"); clearTimeout(hideTimer);
       if (started && !switched && !dragging && !video.ended) cover.hidden = false; // 一時停止中は真ん中に青い再生ボタン
