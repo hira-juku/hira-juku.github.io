@@ -53,6 +53,9 @@
     border: 4px solid rgba(255,255,255,.28); border-top-color: #fff; animation: spin .9s linear infinite; pointer-events: none; z-index: 1; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .stage.drive .exitfs { right: auto; left: 12px; }
+  .hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; max-width: 86%; padding: 14px 18px; border-radius: 14px;
+    background: rgba(20,20,22,.86); color: #fff; font-size: 15px; line-height: 1.6; text-align: center; pointer-events: none; transition: opacity .4s; }
+  .hint b { color: #9db4ff; }
   .wait { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 8px 14px; border-radius: 999px;
     background: rgba(28,28,30,.78); color: #fff; font-size: 13px; white-space: nowrap; }
 
@@ -89,7 +92,8 @@
 
   /* ---------- スマホを横に向けたら、動画を画面いっぱいに ---------- */
   @media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
-    html, body { background: #000; overflow: hidden; height: 100%; }
+    html, body { background: #000; }
+    body { min-height: calc(100vh + 120px); } /* 少し上にスワイプできる分の余白。Safari の上下のバーが縮む */
     .wrap { padding: 0 !important; max-width: none; }
     .card { box-shadow: none !important; border-radius: 0 !important; background: #000 !important; }
     .stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; z-index: 10; background: #000; }
@@ -131,6 +135,7 @@
     </button>
     <button class="exitfs" id="exitfs" aria-label="全画面をやめる">✕ 閉じる</button>
     <div class="spin" id="spin" hidden></div>
+    <div class="hint" id="hint" hidden></div>
     <div class="ctrl" id="ctrl" hidden>
       <div class="bar" id="bar"><div class="track"></div><div class="buf" id="buf"></div><div class="done" id="done"></div><div class="knob" id="knob"></div></div>
       <div class="row">
@@ -312,7 +317,19 @@
     f = Math.max(0, Math.min(1, f));
     if (video.duration && isFinite(video.duration)) { video.currentTime = f * video.duration; paintCtrl(); }
   }
-  function enterRot() { document.body.classList.add("rot"); window.scrollTo(0, 0); if (typeof paintCtrl === "function") setTimeout(paintCtrl, 0); }
+  var hinted = false;
+  function enterRot() {
+    document.body.classList.add("rot"); window.scrollTo(0, 0);
+    if (typeof paintCtrl === "function") setTimeout(paintCtrl, 0);
+    // iPhone で Discord などのアプリの中から開くと、画面が回らず上下のバーも消せない。Safari で開けば Loom と同じ全画面になる
+    if (!hinted && /iPhone|iPod/.test(navigator.userAgent)) {
+      hinted = true;
+      var h = $("hint");
+      h.innerHTML = "スマホを<b>横に向ける</b>と画面いっぱいになります<br>回らないときは、右下の <b>🧭（Safariで開く）</b><br>から開いてください";
+      h.hidden = false; h.style.opacity = "1";
+      setTimeout(function () { h.style.opacity = "0"; setTimeout(function () { h.hidden = true; }, 450); }, 4500);
+    }
+  }
   function exitRot() {
     document.body.classList.remove("rot");
     setTimeout(paintCtrl, 0);
@@ -431,12 +448,13 @@
     var landscape = window.matchMedia("(orientation: landscape) and (max-height: 540px) and (pointer: coarse)");
     var onTurn = function () {
       if (landscape.matches) {
-        window.scrollTo(0, 0);
+        setTimeout(function () { window.scrollTo(0, 120); }, 300); // バーを縮める（効かない時は上にスワイプ）
         if (started && !switched && document.fullscreenEnabled && !document.fullscreenElement) {
           try { var r = $("stage").requestFullscreen(); if (r && r.catch) r.catch(function () {}); } catch (e) {}
         }
-      } else if (document.fullscreenElement) {
-        try { document.exitFullscreen().catch(function () {}); } catch (e) {}
+      } else {
+        window.scrollTo(0, 0);
+        if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
       }
     };
     if (landscape.addEventListener) landscape.addEventListener("change", onTurn); else if (landscape.addListener) landscape.addListener(onTurn);
