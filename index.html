@@ -77,6 +77,21 @@
     .fs { display: none; }
     .info { display: none; }
   }
+
+  /* ---------- 全画面ボタン（スマホ）：ページの中で動画を横向きに広げる ----------
+     Discord・LINE などのアプリの中で開くと、スマホを横にしても画面が回らないことがある。
+     そのため、縦のままでも動画を90度回して画面いっぱいに出す。本当に横に向けた時は上の CSS が受け持つ。 */
+  .exitfs { display: none; position: absolute; top: 12px; right: 12px; z-index: 3; height: 40px; padding: 0 14px; border-radius: 12px; border: 0; cursor: pointer;
+    background: rgba(28,28,30,.72); color: #fff; font: inherit; font-size: 15px; align-items: center; gap: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  body.rot { overflow: hidden; background: #000; }
+  body.rot .info { display: none; }
+  body.rot .fs { display: none; }
+  body.rot .exitfs { display: flex; }
+  @media (orientation: portrait) {
+    body.rot .stage { position: fixed; top: 0; left: 100vw; width: 100vh; width: 100dvh; height: 100vw; aspect-ratio: auto;
+      transform-origin: top left; transform: rotate(90deg); z-index: 20; background: #000; }
+    body.rot .stage video { background: #000; }
+  }
 </style>
 </head>
 <body>
@@ -91,6 +106,7 @@
     <button class="fs" id="fs" aria-label="全画面で見る">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
     </button>
+    <button class="exitfs" id="exitfs" aria-label="全画面をやめる">✕ 閉じる</button>
     <div class="wait" id="wait" hidden>動画を準備しています…（数秒〜1分ほどで始まります）</div>
   </div>
 
@@ -209,10 +225,29 @@
       if (!e || e.name !== "AbortError") useDrivePlayer();
     });
   }
+  function enterRot() { document.body.classList.add("rot"); window.scrollTo(0, 0); }
+  function exitRot() {
+    document.body.classList.remove("rot");
+    if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
+  }
   function fullscreen() {
     if (switched) { if (frame.requestFullscreen) frame.requestFullscreen(); return; }
     if (!started) begin();
     var st = $("stage");
+    if (window.matchMedia("(pointer: coarse)").matches) {
+      // スマホ：Android の Chrome なら本物の全画面＋横向きを試す。だめな時と iPhone は、ページの中で横向きに広げる
+      if (document.fullscreenEnabled && st.requestFullscreen) {
+        st.requestFullscreen()
+          .then(function () { return screen.orientation.lock("landscape"); })
+          .catch(function () {
+            if (document.fullscreenElement) { try { document.exitFullscreen().catch(function () {}); } catch (e) {} }
+            enterRot();
+          });
+      } else {
+        enterRot();
+      }
+      return;
+    }
     if (video.webkitEnterFullscreen && !document.fullscreenEnabled) { try { video.webkitEnterFullscreen(); } catch (e) {} return; } // iPhone
     var req = st.requestFullscreen || st.webkitRequestFullscreen;
     if (req) {
@@ -239,6 +274,16 @@
     video.src = SRC + "#t=0.5";
     cover.onclick = begin;
     $("fs").onclick = fullscreen;
+    $("exitfs").onclick = exitRot;
+    // iPhone の動画の中の全画面ボタンは、アプリの中だと縦のまま固まることがある → ページの中の横向き表示に切り替える
+    video.addEventListener("webkitbeginfullscreen", function () {
+      setTimeout(function () {
+        var playing = !video.paused;
+        try { video.webkitExitFullscreen(); } catch (e) {}
+        enterRot();
+        if (playing) { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
+      }, 50);
+    });
     // 横に向けたとき：画面いっぱいの表示は CSS が受け持つ。Android では本物の全画面も試す（だめでも表示は横いっぱいのまま）
     var landscape = window.matchMedia("(orientation: landscape) and (max-height: 540px) and (pointer: coarse)");
     var onTurn = function () {
