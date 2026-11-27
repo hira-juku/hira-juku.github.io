@@ -84,6 +84,9 @@
   .speeds button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
   .sec { margin-top: 24px; }
   .sec h2 { font-size: 17px; margin: 0 0 8px; }
+  .sechead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .sechead h2 { margin: 0; }
+  .copyall { flex: none; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
   .sec p.sum { margin: 0; line-height: 1.75; }
   .tr { margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; max-height: 420px; overflow: auto; }
   .tr button { display: flex; gap: 12px; width: 100%; text-align: left; padding: 10px 14px; border: 0; border-top: 1px solid var(--line); background: #fff; font: inherit; font-size: 15px; color: var(--ink); cursor: pointer; line-height: 1.6; }
@@ -178,7 +181,7 @@
     <div class="speeds" id="speeds"></div>
     <div class="sec" id="sumSec" hidden><h2>要約</h2><p class="sum" id="sum"></p></div>
     <div class="sec" id="trSec" hidden>
-      <h2>文字起こし</h2>
+      <div class="sechead"><h2>文字起こし</h2><button class="copyall" id="copyTr">すべてコピー</button></div>
       <div class="tr" id="tr"></div>
       <button class="more" id="more" hidden>すべて表示</button>
     </div>
@@ -560,6 +563,16 @@
           box.append(b);
         });
         $("trSec").hidden = false;
+        // 文字起こしを全部コピー（時刻なしの文だけ。台本づくりなどにそのまま貼れる）
+        $("copyTr").onclick = function () {
+          var all = segs.map(function (sg) { return sg.text; }).join("\n");
+          var done = function () { toast("文字起こしを全部コピーしました"); };
+          var fallback = function () {
+            var ta = document.createElement("textarea"); ta.value = all; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+            document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} ta.remove(); done();
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(all).then(done, fallback); else fallback();
+        };
         if (segs.length > 8) {
           $("more").hidden = false;
           $("more").onclick = function () { [].forEach.call(box.children, function (b) { b.hidden = false; }); $("more").hidden = true; };
